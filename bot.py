@@ -23,7 +23,7 @@ from contextlib import contextmanager
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-OPENROUTER_MODEL = "deepseek/deepseek-chat-v3-0324:free"
+OPENROUTER_MODEL = "openrouter/auto"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 CREATOR_ID = 1170819753
