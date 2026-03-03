@@ -21,10 +21,10 @@ from contextlib import contextmanager
 
 # =================== НАСТРОЙКИ ===================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-OPENROUTER_MODEL = "openrouter/auto"
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 CREATOR_ID = 1170819753
 
@@ -261,18 +261,17 @@ def db_get_user_by_username(username: str) -> dict:
 
 async def call_openrouter(messages: list, system: str) -> str:
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/yuki-bot",
     }
     payload = {
-        "model": OPENROUTER_MODEL,
+        "model": GROQ_MODEL,
         "messages": [{"role": "system", "content": system}] + messages,
         "max_tokens": 500,
         "temperature": 0.85,
     }
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(OPENROUTER_URL, headers=headers, json=payload)
+        resp = await client.post(GROQ_URL, headers=headers, json=payload)
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"]
@@ -553,3 +552,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
