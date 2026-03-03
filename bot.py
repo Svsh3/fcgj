@@ -71,7 +71,7 @@ SYSTEM_PROMPT = """Ты — Юки, девушка-ИИ в Telegram-чате. У
 - Если установлены правила модерации — следишь за ними в своём стиле, не как робот."""
 
 # =================== БАЗА ДАННЫХ ===================
-DB_PATH = Path("/app/yuki_memory.db")
+DB_PATH = Path("yuki_memory.db")
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
