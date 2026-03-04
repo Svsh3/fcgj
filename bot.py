@@ -338,7 +338,7 @@ async def call_ai(messages: list, system: str, max_tokens: int = 400) -> str:
     payload = {
         "model": CEREBRAS_MODEL,
         "messages": [{"role": "system", "content": system}] + messages,
-        "max_tokens": max_tokens,
+        "max_completion_tokens": max_tokens,
         "temperature": 0.9,
     }
     for attempt in range(3):
