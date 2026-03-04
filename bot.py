@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "")
 CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY", "")
 DATABASE_URL     = os.environ.get("DATABASE_URL", "")
-CEREBRAS_MODEL   = "llama3.3-120b"
+CEREBRAS_MODEL   = "gpt-oss-120b"
 CEREBRAS_URL     = "https://api.cerebras.ai/v1/chat/completions"
 
 CREATOR_ID   = 1170819753
@@ -332,7 +332,7 @@ async def call_ai(messages: list, system: str, max_tokens: int = 600) -> str:
     payload = {
         "model": CEREBRAS_MODEL,
         "messages": [{"role": "system", "content": system}] + messages,
-        "max_tokens": max_tokens,
+        "max_completion_tokens": max_tokens,
         "temperature": 0.85,
     }
     for attempt in range(3):
