@@ -148,8 +148,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT NOW())""")
         c.execute("""CREATE TABLE IF NOT EXISTS yuki_state (
             chat_id BIGINT PRIMARY KEY, mood TEXT DEFAULT 'neutral',
-            in_conversation BOOLEAN DEFAULT FALSE, conversation_with BIGINT,
-            topic_count INTEGER DEFAULT 0, last_topic TEXT DEFAULT '')""")
+            in_conversation BOOLEAN DEFAULT FALSE, conversation_with BIGINT)""")
+        # Добавляем колонки если их нет (миграция)
+        try:
+            c.execute("ALTER TABLE yuki_state ADD COLUMN IF NOT EXISTS topic_count INTEGER DEFAULT 0")
+            c.execute("ALTER TABLE yuki_state ADD COLUMN IF NOT EXISTS last_topic TEXT DEFAULT ''")
+        except:
+            pass
     logger.info("БД готова ✅")
 
 # История
