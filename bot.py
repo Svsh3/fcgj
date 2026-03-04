@@ -232,11 +232,20 @@ def db_upsert_user(user_id: int, username: str, first_name: str):
     relation = RELATION_CREATOR if user_id == CREATOR_ID else RELATION_NEUTRAL
     with get_conn() as conn:
         c = conn.cursor()
-        c.execute("""
-            INSERT INTO users (user_id, username, first_name, relation)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (user_id) DO UPDATE SET username = %s, first_name = %s, updated_at = NOW()
-        """, (user_id, username, first_name, relation, username, first_name))
+        if user_id == CREATOR_ID:
+            # Создатель — всегда принудительно ставим relation = creator
+            c.execute("""
+                INSERT INTO users (user_id, username, first_name, relation)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    username = %s, first_name = %s, relation = 'creator', updated_at = NOW()
+            """, (user_id, username, first_name, relation, username, first_name))
+        else:
+            c.execute("""
+                INSERT INTO users (user_id, username, first_name, relation)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET username = %s, first_name = %s, updated_at = NOW()
+            """, (user_id, username, first_name, relation, username, first_name))
 
 def db_update_user_score(user_id: int, delta: int):
     if user_id == CREATOR_ID:
@@ -329,7 +338,7 @@ def db_update_state(chat_id: int, mood: str = None, last_speaker: int = None,
 
 # =================== AI ===================
 
-async def call_ai(messages: list, system: str, max_tokens: int = 400) -> str:
+async def call_ai(messages: list, system: str, max_tokens: int = 800) -> str:
     import asyncio
     headers = {
         "Authorization": f"Bearer {CEREBRAS_API_KEY}",
@@ -786,7 +795,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         in_dialogue = state.get("in_conversation") and state.get("conversation_with") == user.id
         if in_dialogue or random.random() < 0.4:
             should_respond = True
-            context_hint = "Это Ввт. Общайся тепло и по-своему."
+            context_hint = "Это Ввт — твой создатель, единственный кого любишь. Отвечай с теплом, можешь слегка показать привязанность. Не холодно."
 
     # 5. Упоминание Ввт
     elif mentions_creator(text):
