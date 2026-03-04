@@ -17,10 +17,10 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-GROQ_MODEL = "llama-3.1-8b-instant"
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+CEREBRAS_MODEL = "llama-3.3-70b"
+CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions"
 
 CREATOR_ID = 1170819753
 MAX_HISTORY = 8
@@ -332,26 +332,26 @@ def db_update_state(chat_id: int, mood: str = None, last_speaker: int = None,
 async def call_ai(messages: list, system: str, max_tokens: int = 400) -> str:
     import asyncio
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Authorization": f"Bearer {CEREBRAS_API_KEY}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": GROQ_MODEL,
+        "model": CEREBRAS_MODEL,
         "messages": [{"role": "system", "content": system}] + messages,
         "max_tokens": max_tokens,
         "temperature": 0.9,
     }
     for attempt in range(3):
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(GROQ_URL, headers=headers, json=payload)
+            resp = await client.post(CEREBRAS_URL, headers=headers, json=payload)
             if resp.status_code == 429:
                 wait = 15 * (attempt + 1)
-                logger.warning(f"Rate limit Groq, жду {wait}с...")
+                logger.warning(f"Rate limit Cerebras, жду {wait}с...")
                 await asyncio.sleep(wait)
                 continue
             resp.raise_for_status()
             return resp.json()["choices"][0]["message"]["content"]
-    raise Exception("Groq rate limit — попробуй позже")
+    raise Exception("Cerebras rate limit — попробуй позже")
 
 async def get_ai_response(chat_id: int, text: str, user_profile: dict, context_hint: str = "") -> str:
     history = db_get_history(chat_id)
