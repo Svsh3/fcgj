@@ -416,15 +416,29 @@ async def update_mood(chat_id: int, text: str, current_mood: str) -> str:
         pass
     return current_mood
 
-async def extract_learning(chat_id: int, text: str, response: str, username: str):
-    system = """Из этого обмена — есть что запомнить? Имена, предпочтения, факты о людях.
-Если есть — одна короткая строка.
+async def extract_learning(chat_id: int, text: str, response: str, username: str, user_id: int = None):
+    system = """Из этого обмена — есть что запомнить про этого человека? Имя, предпочтения, характер, интересы, факты.
+Если есть — одна короткая строка про него лично.
 Если нечего — ответь: НЕТ"""
     try:
         exchange = f"[{username}]: {text}\n[Юки]: {response}"
         result = await call_ai([{"role": "user", "content": exchange}], system, max_tokens=60)
-        if result.strip() != "НЕТ" and len(result.strip()) > 5:
-            db_add_learning(chat_id, result.strip())
+        result = result.strip()
+        if result != "НЕТ" and len(result) > 5:
+            db_add_learning(chat_id, result)
+            # Записываем заметку прямо в профиль пользователя
+            if user_id:
+                with get_conn() as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT notes FROM users WHERE user_id = %s", (user_id,))
+                    row = c.fetchone()
+                    if row:
+                        old_notes = row[0] or ""
+                        # Держим только последние 3 заметки
+                        notes_list = [n for n in old_notes.split("; ") if n]
+                        notes_list.append(result)
+                        new_notes = "; ".join(notes_list[-3:])
+                        c.execute("UPDATE users SET notes = %s WHERE user_id = %s", (new_notes, user_id))
     except:
         pass
 
@@ -822,19 +836,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db_add_message(chat_id, "assistant", response)
             await message.reply_text(response)
 
-            # Обновляем состояние без лишних AI-вызовов
+            # Обновляем состояние
             db_update_state(chat_id, last_speaker=user.id,
                             in_conversation=True, conversation_with=user.id)
 
-            # Настроение и обучение — только каждые 5 сообщений чтобы не спамить API
+            # Обучение — каждый раз, заметки пишутся в профиль пользователя
+            await extract_learning(chat_id, text, response, display, user.id)
+
+            # Настроение — каждые 5 сообщений
             msg_count = db_count_history(chat_id)
             if msg_count % 5 == 0:
                 new_mood = await update_mood(chat_id, text, state["mood"])
                 db_update_state(chat_id, mood=new_mood)
-                await extract_learning(chat_id, text, response, display)
 
-            # Самоанализ каждые 40 сообщений
-            if msg_count % 40 == 0:
+            # Самоанализ каждые 15 сообщений
+            if msg_count % 15 == 0:
                 await do_self_reflection(chat_id)
 
             if user.id != CREATOR_ID:
