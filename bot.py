@@ -232,20 +232,11 @@ def db_upsert_user(user_id: int, username: str, first_name: str):
     relation = RELATION_CREATOR if user_id == CREATOR_ID else RELATION_NEUTRAL
     with get_conn() as conn:
         c = conn.cursor()
-        if user_id == CREATOR_ID:
-            # Создатель — всегда принудительно ставим relation = creator
-            c.execute("""
-                INSERT INTO users (user_id, username, first_name, relation)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    username = %s, first_name = %s, relation = 'creator', updated_at = NOW()
-            """, (user_id, username, first_name, relation, username, first_name))
-        else:
-            c.execute("""
-                INSERT INTO users (user_id, username, first_name, relation)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET username = %s, first_name = %s, updated_at = NOW()
-            """, (user_id, username, first_name, relation, username, first_name))
+        c.execute("""
+            INSERT INTO users (user_id, username, first_name, relation)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET username = %s, first_name = %s, updated_at = NOW()
+        """, (user_id, username, first_name, relation, username, first_name))
 
 def db_update_user_score(user_id: int, delta: int):
     if user_id == CREATOR_ID:
@@ -338,7 +329,7 @@ def db_update_state(chat_id: int, mood: str = None, last_speaker: int = None,
 
 # =================== AI ===================
 
-async def call_ai(messages: list, system: str, max_tokens: int = 800) -> str:
+async def call_ai(messages: list, system: str, max_tokens: int = 400) -> str:
     import asyncio
     headers = {
         "Authorization": f"Bearer {CEREBRAS_API_KEY}",
@@ -425,29 +416,15 @@ async def update_mood(chat_id: int, text: str, current_mood: str) -> str:
         pass
     return current_mood
 
-async def extract_learning(chat_id: int, text: str, response: str, username: str, user_id: int = None):
-    system = """Из этого обмена — есть что запомнить про этого человека? Имя, предпочтения, характер, интересы, факты.
-Если есть — одна короткая строка про него лично.
+async def extract_learning(chat_id: int, text: str, response: str, username: str):
+    system = """Из этого обмена — есть что запомнить? Имена, предпочтения, факты о людях.
+Если есть — одна короткая строка.
 Если нечего — ответь: НЕТ"""
     try:
         exchange = f"[{username}]: {text}\n[Юки]: {response}"
         result = await call_ai([{"role": "user", "content": exchange}], system, max_tokens=60)
-        result = result.strip()
-        if result != "НЕТ" and len(result) > 5:
-            db_add_learning(chat_id, result)
-            # Записываем заметку прямо в профиль пользователя
-            if user_id:
-                with get_conn() as conn:
-                    c = conn.cursor()
-                    c.execute("SELECT notes FROM users WHERE user_id = %s", (user_id,))
-                    row = c.fetchone()
-                    if row:
-                        old_notes = row[0] or ""
-                        # Держим только последние 3 заметки
-                        notes_list = [n for n in old_notes.split("; ") if n]
-                        notes_list.append(result)
-                        new_notes = "; ".join(notes_list[-3:])
-                        c.execute("UPDATE users SET notes = %s WHERE user_id = %s", (new_notes, user_id))
+        if result.strip() != "НЕТ" and len(result.strip()) > 5:
+            db_add_learning(chat_id, result.strip())
     except:
         pass
 
@@ -795,7 +772,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         in_dialogue = state.get("in_conversation") and state.get("conversation_with") == user.id
         if in_dialogue or random.random() < 0.4:
             should_respond = True
-            context_hint = "Это Ввт — твой создатель, единственный кого любишь. Отвечай с теплом, можешь слегка показать привязанность. Не холодно."
+            context_hint = "Это Ввт. Общайся тепло и по-своему."
 
     # 5. Упоминание Ввт
     elif mentions_creator(text):
@@ -845,21 +822,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db_add_message(chat_id, "assistant", response)
             await message.reply_text(response)
 
-            # Обновляем состояние
+            # Обновляем состояние без лишних AI-вызовов
             db_update_state(chat_id, last_speaker=user.id,
                             in_conversation=True, conversation_with=user.id)
 
-            # Обучение — каждый раз, заметки пишутся в профиль пользователя
-            await extract_learning(chat_id, text, response, display, user.id)
-
-            # Настроение — каждые 5 сообщений
+            # Настроение и обучение — только каждые 5 сообщений чтобы не спамить API
             msg_count = db_count_history(chat_id)
             if msg_count % 5 == 0:
                 new_mood = await update_mood(chat_id, text, state["mood"])
                 db_update_state(chat_id, mood=new_mood)
+                await extract_learning(chat_id, text, response, display)
 
-            # Самоанализ каждые 15 сообщений
-            if msg_count % 15 == 0:
+            # Самоанализ каждые 40 сообщений
+            if msg_count % 40 == 0:
                 await do_self_reflection(chat_id)
 
             if user.id != CREATOR_ID:
