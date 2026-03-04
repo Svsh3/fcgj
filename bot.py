@@ -23,7 +23,7 @@ CEREBRAS_MODEL = "gpt-oss-120b"
 CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions"
 
 CREATOR_ID = 1170819753
-MAX_HISTORY = 8
+MAX_HISTORY = 15
 
 NAME_PATTERNS = [r"юки", r"юку", r"юкой", r"юке", r"юкин", r"yuki"]
 CREATOR_PATTERNS = [r"вв[тt]", r"wv[тt]", r"ввт", r"wvt", r"создател"]
@@ -809,8 +809,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             should_respond = True
             context_hint = "Тема зацепила — вступаешь сама."
 
-    # 11. Случайная проверка контекста (40%)
-    elif random.random() < 0.4:
+    # 11. Всегда анализируем контекст
+    else:
         respond, reason = await should_respond_to_context(chat_id, text, display)
         if respond:
             should_respond = True
